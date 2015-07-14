@@ -1,6 +1,39 @@
 #include <iostream>
 #include <vector>
 
+class QuackObservable;
+class Quackable;
+
+class Observer {
+public:
+    void virtual update(QuackObservable *duck)=0;
+};
+
+class QuackObservable {
+public:
+    void virtual registerObserver(Observer *observer) = 0;
+    void virtual notifyObservers() = 0;
+};
+
+class LinerObservable : public QuackObservable {
+    typedef std::vector<Observer *>::const_iterator const_iterator;
+    std::vector<Observer *> observers;
+    QuackObservable *duck;
+public:
+    LinerObservable(QuackObservable *duck):duck(duck){}
+
+    void virtual registerObserver(Observer *observer) {
+        observers.push_back(observer);
+    }
+
+    void virtual notifyObservers() {
+        const_iterator iter;
+        for (iter = observers.cbegin(); iter < observers.cend(); iter++) {
+            (*iter)->update(duck);
+        }
+    }
+};
+
 class Quackable {
 public:
     virtual void quack () = 0;
@@ -9,10 +42,23 @@ public:
 
 Quackable::~Quackable() {}
 
-class MallardDuck : public Quackable {
+class MallardDuck : public Quackable, public QuackObservable {
+    LinerObservable observable; // This layer of implicit should use to choose different observables.
+
 public:
+    MallardDuck () : observable(this) {}
+
     virtual void quack() {
         std::cout<<"Quack"<<std::endl;
+        notifyObservers();
+    }
+
+    void virtual registerObserver(Observer *observer) {
+        observable.registerObserver(observer);
+    }
+
+    void virtual notifyObservers() {
+        observable.notifyObservers();
     }
 };
 
@@ -141,6 +187,8 @@ public:
 
 };
 
+
+
 class DuckSimulator {
 public:
     void simulate(AbstractDuckFactory *factory);
@@ -158,21 +206,33 @@ void DuckSimulator::simulate(AbstractDuckFactory *factory) {
 
     std::cout<<"Duck Simulator"<<std::endl;
 
-    Flock *flock = new Flock();
+    Flock *flockOfDucks = new Flock();
 
-    flock->add(mallardDuck);
-    flock->add(redHeadDuck);
-    flock->add(duckCall);
-    flock->add(rubberDuck);
+    flockOfDucks->add(redHeadDuck);
+    flockOfDucks->add(duckCall);
+    flockOfDucks->add(rubberDuck);
+    flockOfDucks->add(goose);
 
-    simulate(mallardDuck);
-    simulate(redHeadDuck);
-    simulate(duckCall);
-    simulate(rubberDuck);
-    simulate(goose);
+    Flock *flockOfMallards = new Flock();
+
+    Quackable *mallardOne = factory->createMallardDuck();
+    Quackable *mallardTwo = factory->createMallardDuck();
+    Quackable *mallardThree = factory->createMallardDuck();
+    Quackable *mallardFour = factory->createMallardDuck();
+
+    flockOfMallards->add(mallardOne);
+    flockOfMallards->add(mallardTwo);
+    flockOfMallards->add(mallardThree);
+    flockOfMallards->add(mallardFour);
+
+    flockOfDucks->add(flockOfMallards);
+
+    simulate(flockOfDucks);
 
     std::cout<<"The duck quacked "<<QuackCounter::getQuacks()<<" times"<<std::endl;
 
+    delete flockOfMallards;
+    delete flockOfDucks;
     delete mallardDuck;
     delete redHeadDuck;
     delete duckCall;
